@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>💬 WebSocket Chat Real-time</title>
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        max-width: 900px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #f0f2f5;
+      }
+      h1 {
+        text-align: center;
+        color: #1a73e8;
+      }
+      #chat-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+      #messages {
+        height: 70vh;
+        padding: 20px;
+        overflow-y: auto;
+      }
+      .message {
+        margin: 10px 0;
+        padding: 10px 15px;
+        border-radius: 18px;
+        max-width: 80%;
+        word-wrap: break-word;
+      }
+      .chat {
+        background: #e3f2fd;
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+      }
+      .system {
+        background: #fff3e0;
+        text-align: center;
+        font-style: italic;
+        width: 100%;
+        margin: 15px 0;
+      }
+      .username {
+        font-weight: bold;
+        color: #1a73e8;
+        margin-bottom: 4px;
+      }
+      .time {
+        font-size: 0.8em;
+        color: #666;
+      }
+      #input-area {
+        display: flex;
+        padding: 15px;
+        background: #f9f9f9;
+        border-top: 1px solid #ddd;
+      }
+      #input {
+        flex: 1;
+        padding: 12px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 25px;
+        outline: none;
+      }
+      #send {
+        padding: 12px 20px;
+        margin-left: 10px;
+        background: #1a73e8;
+        color: white;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+      }
+      #send:hover {
+        background: #1557b0;
+      }
+      #status {
+        text-align: center;
+        padding: 10px;
+        font-weight: bold;
+      }
+      .online {
+        color: #0f9d58;
+      }
+      .offline {
+        color: #db4437;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>💬 Chat Thời Gian Thực (WebSocket)</h1>
+    <div id="chat-container">
+      <div id="status" class="offline">Đang kết nối...</div>
+      <div id="messages"></div>
+      <div id="input-area">
+        <input
+          type="text"
+          id="input"
+          placeholder="Nhập tin nhắn..."
+          autocomplete="off"
+        />
+        <button id="send">Gửi</button>
+      </div>
+    </div>
+
+    <script>
+      const ws = new WebSocket(`ws://${location.hostname}:8080`);
+      const messages = document.getElementById("messages");
+      const input = document.getElementById("input");
+      const status = document.getElementById("status");
+
+      // Hỏi tên người dùng khi mở trang
+      let username = prompt(
+        "Nhập tên của bạn:",
+        "Người dùng " + Math.floor(Math.random() * 1000)
+      );
+      if (!username || username.trim() === "") username = "Anonymous";
+
+      ws.onopen = () => {
+        status.textContent = `🟢 Đã kết nối với tên: ${username}`;
+        status.className = "online";
+        addSystemMessage(`Chào mừng ${username} tham gia!`);
+        ws.send(JSON.stringify({ type: "setUsername", username }));
+      };
+
+      ws.onmessage = (event) => {
+        let msg;
+        try {
+          msg = JSON.parse(event.data);
+        } catch (e) {
+          return;
+        }
+
+        if (msg.type === "system") {
+          addSystemMessage(msg.message);
+        } else if (msg.type === "chat") {
+          addChatMessage(msg.username, msg.text, msg.time);
+        }
+      };
+
+      ws.onclose = () => {
+        status.textContent = "🔴 Mất kết nối";
+        status.className = "offline";
+        addSystemMessage("Kết nối đã đóng. Tải lại trang để kết nối lại.");
+      };
+
+      function addSystemMessage(text) {
+        const div = document.createElement("div");
+        div.className = "message system";
+        div.textContent = text;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function addChatMessage(user, text, time) {
+        const div = document.createElement("div");
+        div.className = "message chat";
+        div.innerHTML = `
+        <div class="username">${user}</div>
+        <div>${text}</div>
+        <div class="time">${time || ""}</div>
+      `;
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight;
+      }
+
+      function sendMessage() {
+        const text = input.value.trim();
+        if (text && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "chat", text }));
+          input.value = "";
+        }
+      }
+
+      document.getElementById("send").onclick = sendMessage;
+      input.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") sendMessage();
+      });
+
+      input.focus();
+    </script>
+  </body>
+</html>
