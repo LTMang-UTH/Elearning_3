@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title> WebSocket Chat </title>
+
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(135deg, #e3f0ff 0%, #f8e8ff 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+    }
+
+    #chat-container {
+      width: 100%;
+      max-width: 420px;
+      height: 80vh;
+      background: #fff;
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(60,60,120,0.18);
+      border: 1px solid #e3e3e3;
+      overflow: hidden;
+    }
+
+    header {
+      padding: 18px 0 12px 0;
+      background: linear-gradient(90deg, #6a8dff 0%, #b46cff 100%);
+      color: white;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 8px rgba(100,100,200,0.08);
+    }
+
+    #status {
+      text-align: center;
+      padding: 8px 0 2px 0;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .online { color: #0f9d58; }
+    .offline { color: #db4437; }
+
+    #online-count {
+      text-align: center;
+      font-size: 14px;
+      color: #6a8dff;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    #messages {
+      flex: 1;
+      padding: 18px 12px 12px 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      background: #f7f8fa;
+      border-top: 1px solid #e3e3e3;
+      border-bottom: 1px solid #e3e3e3;
+    }
+
+    .message {
+      max-width: 75%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      margin-bottom: 12px;
+      font-size: 15px;
+      word-wrap: break-word;
+      box-shadow: 0 2px 8px rgba(100,100,200,0.07);
+      transition: background 0.2s;
+    }
+
+    .me {
+      align-self: flex-end;
+      background: linear-gradient(90deg, #6a8dff 0%, #b46cff 100%);
+      color: white;
+      border-bottom-right-radius: 6px;
+      border-top-right-radius: 6px;
+      box-shadow: 0 2px 8px rgba(106,141,255,0.12);
+    }
+
+    .other {
+      align-self: flex-start;
+      background: #e4e6eb;
+      color: #333;
+      border-bottom-left-radius: 6px;
+      border-top-left-radius: 6px;
+      box-shadow: 0 2px 8px rgba(180,108,255,0.10);
+    }
+
+    .username {
+      font-weight: bold;
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: #6a8dff;
+    }
+
+    .me .username {
+      color: #fff;
+    }
+
+    .time {
+      font-size: 11px;
+      margin-top: 4px;
+      opacity: 0.6;
+      text-align: right;
+    }
+
+    .system {
+      align-self: center;
+      background: #fff3cd;
+      font-style: italic;
+      font-size: 13px;
+      max-width: 100%;
+      color: #a67c00;
+      box-shadow: none;
+    }
+
+    #input-area {
+      display: flex;
+      padding: 16px 12px;
+      border-top: 1px solid #e3e3e3;
+      background: #f7f8fa;
+    }
+
+    #input {
+      flex: 1;
+      padding: 13px 16px;
+      border-radius: 25px;
+      border: 1.5px solid #b46cff;
+      font-size: 16px;
+      outline: none;
+      background: #fff;
+      transition: border 0.2s;
+    }
+
+    #input:focus {
+      border: 2px solid #6a8dff;
+    }
+
+    #send {
+      margin-left: 10px;
+      padding: 0 28px;
+      border-radius: 25px;
+      border: none;
+      background: linear-gradient(90deg, #6a8dff 0%, #b46cff 100%);
+      color: white;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(106,141,255,0.10);
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+
+    #send:active {
+      box-shadow: 0 4px 16px rgba(106,141,255,0.18);
+    }
+
+    #send:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="chat-container">
+    <header> WebSocket Chat</header>
+    <div id="status" class="offline">Đang kết nối...</div>
+    <div id="online-count" style="text-align:center;font-size:14px;color:#1a73e8;margin-bottom:8px;"></div>
+    <div id="messages"></div>
+
+
+    <div id="input-area">
+      <input id="input" placeholder="Nhập tin nhắn..." disabled />
+      <button id="send" disabled>Gửi</button>
+    </div>
+  </div>
+
+  <script>
+    const ws = new WebSocket(`ws://${location.hostname}:8765`);
+    const messages = document.getElementById("messages");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+    const status = document.getElementById("status");
+
+    let username = prompt("Nhập tên của bạn:", "User" + Math.floor(Math.random()*1000));
+    if (!username) username = "Anonymous";
+
+    ws.onopen = () => {
+      status.textContent = "🟢 Đã kết nối";
+      status.className = "online";
+      input.disabled = false;
+      sendBtn.disabled = false;
+
+      ws.send(JSON.stringify({ type: "setUsername", username }));
+    };
+
+    ws.onclose = () => {
+      status.textContent = "🔴 Mất kết nối";
+      status.className = "offline";
+      input.disabled = true;
+      sendBtn.disabled = true;
+      addSystemMessage("Kết nối đã đóng");
+    };
+
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === "system") {
+        addSystemMessage(msg.message);
+      } else if (msg.type === "chat") {
+        addChatMessage(msg.username, msg.text, msg.time);
+      } else if (msg.type === "online_count") {
+        document.getElementById("online-count").textContent = `👥 Đang online: ${msg.count}`;
+      }
+    };
+
+    function addSystemMessage(text) {
+      const div = document.createElement("div");
+      div.className = "message system";
+      div.textContent = text;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function addChatMessage(user, text, time) {
+      const div = document.createElement("div");
+      div.className = "message " + (user === username ? "me" : "other");
+
+      div.innerHTML = `
+        <div class="username">${user}</div>
+        <div>${text}</div>
+        <div class="time">${time || ""}</div>
+      `;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function sendMessage() {
+      const text = input.value.trim();
+      if (text) {
+        ws.send(JSON.stringify({ type: "chat", text }));
+        input.value = "";
+      }
+    }
+
+
+
+    sendBtn.onclick = sendMessage;
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") sendMessage();
+    });
+  </script>
+</body>
+</html>
