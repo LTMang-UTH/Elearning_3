@@ -1,46 +1,32 @@
-#include <iostream>
-#include <thread>
 #include <winsock2.h>
+#include <iostream>
+
 #pragma comment(lib, "ws2_32.lib")
-
-#define PORT 8080
-#define BUF_SIZE 1024
-
-void receiveMsg(SOCKET client) {
-    char buffer[BUF_SIZE];
-    while (true) {
-        int len = recv(client, buffer, BUF_SIZE, 0);
-        if (len > 0) {
-            buffer[len] = '\0';
-            std::cout << "\n>> " << buffer << "\nYou: ";
-        }
-    }
-}
 
 int main() {
     WSADATA wsa;
-    SOCKET client;
-    sockaddr_in serverAddr;
-    char buffer[BUF_SIZE];
-
     WSAStartup(MAKEWORD(2,2), &wsa);
 
-    client = socket(AF_INET, SOCK_STREAM, 0);
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(PORT);
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
 
-    connect(client, (sockaddr*)&serverAddr, sizeof(serverAddr));
+    sockaddr_in server{};
+    server.sin_family = AF_INET;
+    server.sin_port = htons(8080);
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    std::thread(receiveMsg, client).detach();
+    connect(sock, (sockaddr*)&server, sizeof(server));
 
-    while (true) {
-        std::cout << "You: ";
-        std::cin.getline(buffer, BUF_SIZE);
-        send(client, buffer, strlen(buffer), 0);
-    }
+    const char* request =
+        "GET /send?msg=Hello_from_client_cpp HTTP/1.1\r\n"
+        "Host: localhost\r\n\r\n";
 
-    closesocket(client);
+    send(sock, request, strlen(request), 0);
+
+    char buffer[2048]{};
+    recv(sock, buffer, sizeof(buffer), 0);
+
+    std::cout << "Server reply:\n" << buffer << std::endl;
+
+    closesocket(sock);
     WSACleanup();
-    return 0;
 }

@@ -1,36 +1,20 @@
-📡 Simple Chat Server – C++
+# C++ Asynchronous Chat Demo
 
-Mô tả:
-Project C++ mô phỏng server – client sử dụng socket, cho phép server lắng nghe kết nối và nhận request từ client (trình duyệt hoặc chương trình C++).
+## Mục tiêu
+Mô phỏng kỹ thuật **lập trình bất đồng bộ** trong C++ thông qua mô hình **Client – Server**, nhằm tăng hiệu suất xử lý nhiều kết nối đồng thời.
 
-Công nghệ sử dụng:
+## Mô tả
+- **Server (C++)**:  
+  - Chạy socket TCP
+  - Xử lý nhiều client đồng thời (non-blocking)
+  - Nhận và phản hồi dữ liệu theo cơ chế bất đồng bộ
 
-C++ (chuẩn)
+- **Client (HTML + JavaScript)**:  
+  - Chạy trên trình duyệt
+  - Gửi yêu cầu HTTP bất đồng bộ
+  - Hiển thị kết quả giống giao diện web chat
 
-Winsock (Windows)
+- **client.cpp** (tùy chọn):  
+  - Client C++ đơn giản dùng để kiểm thử server
 
-TCP/IP
-
-Cách chạy:
-
-Compile chương trình:
-
-g++ server.cpp -o server
-g++ client.cpp -o client
-
-
-Chạy server:
-
-server.exe
-
-
-Mở trình duyệt hoặc chạy client:
-
-http://localhost:8080
-
-
-Kết quả:
-
-Server chạy tại cổng 8080
-
-Nhận và hiển thị HTTP request từ client
+## Cấu trúc thư mục

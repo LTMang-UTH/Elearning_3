@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>C++ Chat Demo</title>
+    <style>
+        body { font-family: Arial; background: #f2f2f2; }
+        #chat { width: 400px; margin: auto; background: #fff; padding: 10px; }
+        #messages { height: 200px; border: 1px solid #ccc; overflow-y: auto; margin-bottom: 10px; }
+        input { width: 80%; }
+        button { width: 18%; }
+    </style>
+</head>
+<body>
+
+<div id="chat">
+    <h3>Chat với C++ Server</h3>
+    <div id="messages"></div>
+    <input id="msg" placeholder="Nhập tin nhắn..." />
+    <button onclick="sendMsg()">Gửi</button>
+</div>
+
+<script>
+function sendMsg() {
+    const msg = document.getElementById("msg").value;
+
+    fetch("http://localhost:8080/send?msg=" + encodeURIComponent(msg))
+        .then(res => res.text())
+        .then(data => {
+            const div = document.getElementById("messages");
+            div.innerHTML += "<p>Server: " + data + "</p>";
+        });
+
+    document.getElementById("msg").value = "";
+}
+</script>
+
+</body>
+</html>
