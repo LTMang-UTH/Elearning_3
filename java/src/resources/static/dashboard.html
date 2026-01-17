@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Real-time - WebSocket Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background-size: 200% 200%;
+            animation: gradientShift 15s ease infinite;
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 25px;
+            left: 25px;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            color: #667eea;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-radius: 15px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95em;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .back-btn:hover {
+            background: white;
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.2);
+        }
+
+        .dashboard-container {
+            max-width: 1500px;
+            margin: 0 auto;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding-top: 70px;
+        }
+
+        .header h1 {
+            font-size: 3.2em;
+            margin-bottom: 15px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.95;
+            margin-bottom: 15px;
+            font-weight: 400;
+        }
+
+        .status {
+            font-size: 1.1em;
+            margin-top: 15px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            font-weight: 500;
+        }
+
+        .status.connected {
+            color: #4ade80;
+            background: rgba(74, 222, 128, 0.2);
+        }
+
+        .status.disconnected {
+            color: #f87171;
+            background: rgba(248, 113, 113, 0.2);
+        }
+
+        .status::before {
+            content: '';
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 35px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 30px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.5);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transform: scaleX(0);
+            transition: transform 0.4s ease;
+        }
+
+        .card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5);
+        }
+
+        .card-icon {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .card-title {
+            font-size: 0.95em;
+            color: #64748b;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+
+        .card-value {
+            font-size: 3em;
+            font-weight: 800;
+            color: #1e293b;
+            margin-bottom: 8px;
+            letter-spacing: -1px;
+            line-height: 1;
+        }
+
+        .card-unit {
+            font-size: 1.1em;
+            color: #94a3b8;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .card-change {
+            font-size: 0.95em;
+            margin-top: 12px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .card-change.positive {
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .card-change.negative {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 35px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.5);
+            margin-bottom: 25px;
+            transition: transform 0.3s ease;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-3px);
+        }
+
+        .chart-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 25px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+        }
+
+        .info-section {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 35px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.5);
+        }
+
+        .info-section h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 1.6em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .info-section ul {
+            color: #475569;
+            line-height: 2.2;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .info-section li {
+            margin-bottom: 15px;
+            padding-left: 30px;
+            position: relative;
+            font-size: 1.05em;
+        }
+
+        .info-section li::before {
+            content: '▸';
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .info-section li strong {
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        .data-table-container {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            border-radius: 25px;
+            padding: 35px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.5);
+            margin-bottom: 25px;
+        }
+
+        .data-table-title {
+            font-size: 1.5em;
+            font-weight: 700;
+            margin-bottom: 25px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            overflow: hidden;
+        }
+
+        .data-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .data-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            color: #475569;
+            font-size: 0.95em;
+        }
+
+        .data-table tbody tr {
+            transition: background 0.2s ease;
+        }
+
+        .data-table tbody tr:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-value {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .data-unit {
+            color: #94a3b8;
+            font-size: 0.9em;
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-btn">← Trang chủ</a>
+    
+    <div class="dashboard-container">
+        <div class="header">
+            <h1>📊 Dashboard Real-time</h1>
+            <p>Dữ liệu được cập nhật mỗi 2 giây</p>
+            <div id="status" class="status disconnected">Đang kết nối...</div>
+        </div>
+
+        <div class="cards">
+            <div class="card">
+                <span class="card-icon">💰</span>
+                <div class="card-title">Giá Cổ Phiếu</div>
+                <div class="card-value" id="stockPrice">--</div>
+                <div class="card-unit">USD</div>
+                <div class="card-change" id="stockChange"></div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">🌡️</span>
+                <div class="card-title">Nhiệt Độ</div>
+                <div class="card-value" id="temperature">--</div>
+                <div class="card-unit">°C</div>
+                <div class="card-change" id="tempChange"></div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">💧</span>
+                <div class="card-title">Độ Ẩm</div>
+                <div class="card-value" id="humidity">--</div>
+                <div class="card-unit">%</div>
+                <div class="card-change" id="humidityChange"></div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">📊</span>
+                <div class="card-title">Áp Suất</div>
+                <div class="card-value" id="pressure">--</div>
+                <div class="card-unit">hPa</div>
+                <div class="card-change" id="pressureChange"></div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">⚡</span>
+                <div class="card-title">CPU Usage</div>
+                <div class="card-value" id="cpuUsage">--</div>
+                <div class="card-unit">%</div>
+                <div class="card-change" id="cpuChange"></div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">💾</span>
+                <div class="card-title">Memory Usage</div>
+                <div class="card-value" id="memoryUsage">--</div>
+                <div class="card-unit">%</div>
+                <div class="card-change" id="memoryChange"></div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">🌐</span>
+                <div class="card-title">Network Speed</div>
+                <div class="card-value" id="networkSpeed">--</div>
+                <div class="card-unit">Mbps</div>
+                <div class="card-change" id="networkChange"></div>
+            </div>
+
+            <div class="card">
+                <span class="card-icon">👥</span>
+                <div class="card-title">Người Dùng Online</div>
+                <div class="card-value" id="activeUsers">--</div>
+                <div class="card-unit">users</div>
+            </div>
+        </div>
+
+        <div class="data-table-container">
+            <div class="data-table-title">📋 Bảng Dữ Liệu Real-time</div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Thời Gian</th>
+                        <th>Giá Cổ Phiếu</th>
+                        <th>Nhiệt Độ</th>
+                        <th>Độ Ẩm</th>
+                        <th>Áp Suất</th>
+                        <th>CPU</th>
+                        <th>Memory</th>
+                        <th>Network</th>
+                        <th>Users</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableBody">
+                    <tr>
+                        <td colspan="9" style="text-align: center; color: #94a3b8;">Đang chờ dữ liệu...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">📈 Biểu Đồ Giá Cổ Phiếu (Real-time)</div>
+            <div class="chart-wrapper">
+                <canvas id="stockChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">🌡️ Biểu Đồ Nhiệt Độ (Real-time)</div>
+            <div class="chart-wrapper">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">📊 Biểu Đồ Hệ Thống (CPU & Memory)</div>
+            <div class="chart-wrapper">
+                <canvas id="systemChart"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-title">🌍 Biểu Đồ Môi Trường (Nhiệt Độ & Độ Ẩm)</div>
+            <div class="chart-wrapper">
+                <canvas id="environmentChart"></canvas>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>📚 Về WebSocket Frames:</h2>
+            <ul>
+                <li><strong>Text Frame:</strong> Dữ liệu text (JSON trong trường hợp này) - Opcode 0x1</li>
+                <li><strong>Binary Frame:</strong> Dữ liệu binary - Opcode 0x2</li>
+                <li><strong>Ping Frame:</strong> Client/Server gửi để kiểm tra kết nối - Opcode 0x9</li>
+                <li><strong>Pong Frame:</strong> Phản hồi cho Ping - Opcode 0xA</li>
+                <li><strong>Close Frame:</strong> Đóng kết nối một cách "duyên dáng" - Opcode 0x8</li>
+                <li><strong>Continuation Frame:</strong> Tiếp tục frame lớn - Opcode 0x0</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2/lib/stomp.min.js"></script>
+    <script>
+        // WebSocket Client cho Dashboard
+        let stompClient = null;
+        let stockPrice = null;
+        let temperature = null;
+        let humidity = null;
+        let pressure = null;
+        let cpuUsage = null;
+        let memoryUsage = null;
+        let networkSpeed = null;
+        const maxDataPoints = 20;
+        const maxTableRows = 10;
+
+        // Khởi tạo biểu đồ
+        const stockCtx = document.getElementById('stockChart').getContext('2d');
+        const stockChart = new Chart(stockCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Giá Cổ Phiếu (USD)',
+                    data: [],
+                    borderColor: 'rgb(102, 126, 234)',
+                    backgroundColor: 'rgba(102, 126, 234, 0.15)',
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgb(102, 126, 234)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                size: 13,
+                                weight: '600',
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            weight: '600',
+                            family: "'Inter', sans-serif"
+                        },
+                        bodyFont: {
+                            size: 13,
+                            family: "'Inter', sans-serif"
+                        },
+                        cornerRadius: 10,
+                        displayColors: true
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 12
+                            },
+                            color: '#64748b'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 11
+                            },
+                            color: '#64748b'
+                        }
+                    }
+                },
+                animation: {
+                    duration: 750,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+
+        const tempCtx = document.getElementById('tempChart').getContext('2d');
+        const tempChart = new Chart(tempCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Nhiệt Độ (°C)',
+                    data: [],
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                    borderWidth: 3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgb(239, 68, 68)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                size: 13,
+                                weight: '600',
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            weight: '600',
+                            family: "'Inter', sans-serif"
+                        },
+                        bodyFont: {
+                            size: 13,
+                            family: "'Inter', sans-serif"
+                        },
+                        cornerRadius: 10,
+                        displayColors: true
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 12
+                            },
+                            color: '#64748b'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 11
+                            },
+                            color: '#64748b'
+                        }
+                    }
+                },
+                animation: {
+                    duration: 750,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+
+        // Bar Chart cho CPU & Memory
+        const systemCtx = document.getElementById('systemChart').getContext('2d');
+        const systemChart = new Chart(systemCtx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'CPU Usage (%)',
+                    data: [],
+                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                    borderColor: 'rgb(102, 126, 234)',
+                    borderWidth: 2
+                }, {
+                    label: 'Memory Usage (%)',
+                    data: [],
+                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                    borderColor: 'rgb(239, 68, 68)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                size: 13,
+                                weight: '600',
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        cornerRadius: 10
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 12
+                            },
+                            color: '#64748b'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 11
+                            },
+                            color: '#64748b'
+                        }
+                    }
+                },
+                animation: {
+                    duration: 750
+                }
+            }
+        });
+
+        // Area Chart cho Môi trường
+        const envCtx = document.getElementById('environmentChart').getContext('2d');
+        const environmentChart = new Chart(envCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Nhiệt Độ (°C)',
+                    data: [],
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'Độ Ẩm (%)',
+                    data: [],
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 15,
+                            font: {
+                                size: 13,
+                                weight: '600',
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        cornerRadius: 10
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.1)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 12
+                            },
+                            color: '#64748b'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: {
+                                family: "'Inter', sans-serif",
+                                size: 11
+                            },
+                            color: '#64748b'
+                        }
+                    }
+                },
+                animation: {
+                    duration: 750,
+                    easing: 'easeInOutQuart'
+                }
+            }
+        });
+
+        /**
+         * Kết nối đến WebSocket server
+         */
+        function connect() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.debug = null;
+
+            stompClient.connect({}, onConnected, onError);
+        }
+
+        /**
+         * Callback khi kết nối thành công
+         */
+        function onConnected() {
+            document.getElementById('status').textContent = '✅ Đã kết nối';
+            document.getElementById('status').className = 'status connected';
+            
+            // Subscribe để nhận dữ liệu từ /topic/dashboard
+            stompClient.subscribe('/topic/dashboard', onDashboardDataReceived);
+        }
+
+        /**
+         * Callback khi có lỗi
+         */
+        function onError(error) {
+            document.getElementById('status').textContent = '❌ Lỗi kết nối';
+            document.getElementById('status').className = 'status disconnected';
+            console.error('WebSocket error:', error);
+        }
+
+        /**
+         * Xử lý khi nhận được dữ liệu dashboard
+         */
+        function onDashboardDataReceived(payload) {
+            const data = JSON.parse(payload.body);
+            updateDashboard(data);
+        }
+
+        /**
+         * Cập nhật UI với dữ liệu mới
+         */
+        function updateDashboard(data) {
+            const now = new Date().toLocaleTimeString('vi-VN');
+            const nowFull = new Date().toLocaleString('vi-VN');
+
+            // Helper function để cập nhật card với change indicator
+            function updateCard(elementId, changeElementId, value, prevValue, unit, formatFunc) {
+                const element = document.getElementById(elementId);
+                const changeElement = document.getElementById(changeElementId);
+                
+                if (prevValue !== null && prevValue !== value) {
+                    const change = value - prevValue;
+                    const changeText = formatFunc ? formatFunc(change) : change.toFixed(2);
+                    changeElement.textContent = `${change >= 0 ? '+' : ''}${changeText}${unit || ''}`;
+                    changeElement.className = `card-change ${change >= 0 ? 'positive' : 'negative'}`;
+                }
+                
+                element.textContent = formatFunc ? formatFunc(value) : value.toFixed(2);
+                return value;
+            }
+
+            // Cập nhật giá cổ phiếu
+            const stockPriceElement = document.getElementById('stockPrice');
+            const stockChangeElement = document.getElementById('stockChange');
+            if (stockPrice !== null && stockPrice !== data.stockPrice) {
+                const change = data.stockPrice - stockPrice;
+                const changePercent = ((change / stockPrice) * 100).toFixed(2);
+                stockChangeElement.textContent = 
+                    `${change >= 0 ? '+' : ''}${change.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent}%)`;
+                stockChangeElement.className = `card-change ${change >= 0 ? 'positive' : 'negative'}`;
+            }
+            stockPrice = data.stockPrice;
+            stockPriceElement.textContent = data.stockPrice.toFixed(2);
+
+            // Cập nhật nhiệt độ
+            temperature = updateCard('temperature', 'tempChange', data.temperature, temperature, '°C', (v) => v.toFixed(1));
+
+            // Cập nhật độ ẩm
+            humidity = updateCard('humidity', 'humidityChange', data.humidity || 0, humidity, '%', (v) => v.toFixed(1));
+
+            // Cập nhật áp suất
+            pressure = updateCard('pressure', 'pressureChange', data.pressure || 0, pressure, ' hPa', (v) => v.toFixed(2));
+
+            // Cập nhật CPU
+            cpuUsage = updateCard('cpuUsage', 'cpuChange', data.cpuUsage || 0, cpuUsage, '%', (v) => v.toFixed(1));
+
+            // Cập nhật Memory
+            memoryUsage = updateCard('memoryUsage', 'memoryChange', data.memoryUsage || 0, memoryUsage, '%', (v) => v.toFixed(1));
+
+            // Cập nhật Network
+            networkSpeed = updateCard('networkSpeed', 'networkChange', data.networkSpeed || 0, networkSpeed, ' Mbps', (v) => v.toFixed(1));
+
+            // Cập nhật số lượng users
+            document.getElementById('activeUsers').textContent = data.activeUsers;
+
+            // Cập nhật biểu đồ
+            updateChart(stockChart, data.stockPrice, now);
+            updateChart(tempChart, data.temperature, now);
+            
+            // Cập nhật bar chart (CPU & Memory)
+            updateBarChart(systemChart, [
+                data.cpuUsage || 0,
+                data.memoryUsage || 0
+            ], now);
+            
+            // Cập nhật environment chart
+            updateMultiLineChart(environmentChart, [
+                data.temperature,
+                data.humidity || 0
+            ], now);
+
+            // Cập nhật bảng dữ liệu
+            updateDataTable(data, nowFull);
+        }
+
+        /**
+         * Cập nhật bar chart
+         */
+        function updateBarChart(chart, values, label) {
+            chart.data.labels.push(label);
+            chart.data.datasets[0].data.push(values[0]);
+            chart.data.datasets[1].data.push(values[1]);
+
+            if (chart.data.labels.length > maxDataPoints) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[1].data.shift();
+            }
+
+            chart.update('none');
+        }
+
+        /**
+         * Cập nhật multi-line chart
+         */
+        function updateMultiLineChart(chart, values, label) {
+            chart.data.labels.push(label);
+            chart.data.datasets[0].data.push(values[0]);
+            chart.data.datasets[1].data.push(values[1]);
+
+            if (chart.data.labels.length > maxDataPoints) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[1].data.shift();
+            }
+
+            chart.update('none');
+        }
+
+        /**
+         * Cập nhật bảng dữ liệu
+         */
+        function updateDataTable(data, timestamp) {
+            const tbody = document.getElementById('dataTableBody');
+            
+            // Tạo row mới
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${timestamp}</td>
+                <td><span class="data-value">${data.stockPrice.toFixed(2)}</span><span class="data-unit"> USD</span></td>
+                <td><span class="data-value">${data.temperature.toFixed(1)}</span><span class="data-unit"> °C</span></td>
+                <td><span class="data-value">${(data.humidity || 0).toFixed(1)}</span><span class="data-unit"> %</span></td>
+                <td><span class="data-value">${(data.pressure || 0).toFixed(2)}</span><span class="data-unit"> hPa</span></td>
+                <td><span class="data-value">${(data.cpuUsage || 0).toFixed(1)}</span><span class="data-unit"> %</span></td>
+                <td><span class="data-value">${(data.memoryUsage || 0).toFixed(1)}</span><span class="data-unit"> %</span></td>
+                <td><span class="data-value">${(data.networkSpeed || 0).toFixed(1)}</span><span class="data-unit"> Mbps</span></td>
+                <td><span class="data-value">${data.activeUsers}</span><span class="data-unit"> users</span></td>
+            `;
+            
+            // Thêm row mới vào đầu
+            if (tbody.firstChild && tbody.firstChild.textContent.includes('Đang chờ')) {
+                tbody.innerHTML = '';
+            }
+            tbody.insertBefore(row, tbody.firstChild);
+            
+            // Giới hạn số lượng rows
+            while (tbody.children.length > maxTableRows) {
+                tbody.removeChild(tbody.lastChild);
+            }
+        }
+
+        /**
+         * Cập nhật biểu đồ với điểm dữ liệu mới
+         */
+        function updateChart(chart, value, label) {
+            chart.data.labels.push(label);
+            chart.data.datasets[0].data.push(value);
+
+            // Giới hạn số lượng điểm dữ liệu
+            if (chart.data.labels.length > maxDataPoints) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+            }
+
+            chart.update('none'); // 'none' để animation mượt hơn
+        }
+
+        // Kết nối khi trang được load
+        connect();
+    </script>
+</body>
+</html>
